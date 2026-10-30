@@ -1,0 +1,488 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>메모리 카드 게임</title>
+  <style>
+    :root {
+      --accent: #ff6fa5;
+      --accent-dark: #e8548c;
+      --cream: #fff6ec;
+      --choco: #5a3a2e;
+      --muted: #9a7f72;
+      --card-back: #ffc6dc;
+      --card-back-2: #ffe0ec;
+      --card-front: #ffffff;
+      --match: #d9f5df;
+      --line: #f3dccb;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: "Pretendard", "Apple SD Gothic Neo", "Noto Sans KR", "Malgun Gothic", system-ui, sans-serif;
+      background: var(--cream);
+      color: var(--choco);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 24px 16px 40px;
+      -webkit-font-smoothing: antialiased;
+      word-break: keep-all;
+    }
+
+    h1 { font-size: clamp(26px, 6vw, 38px); margin-bottom: 4px; }
+    .sub { color: var(--muted); margin-bottom: 16px; font-size: 15px; }
+
+    .themes {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 16px;
+      flex-wrap: wrap;
+      justify-content: center;
+    }
+    .theme-btn {
+      background: #fff;
+      color: var(--choco);
+      border: 2px solid var(--line);
+      border-radius: 999px;
+      padding: 8px 18px;
+      font: inherit;
+      font-weight: 700;
+      cursor: pointer;
+    }
+    .theme-btn.active { background: var(--accent); border-color: var(--accent); color: #fff; }
+
+    .stats {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 20px;
+      flex-wrap: wrap;
+      justify-content: center;
+    }
+    .stat {
+      background: #fff;
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      padding: 8px 16px;
+      min-width: 88px;
+      text-align: center;
+    }
+    .stat span { display: block; font-size: 12px; color: var(--muted); }
+    .stat b { font-size: 20px; font-variant-numeric: tabular-nums; }
+
+    .board {
+      --size: min(21vw, 118px);
+      display: grid;
+      grid-template-columns: repeat(4, var(--size));
+      gap: min(2.5vw, 12px);
+      perspective: 900px;
+    }
+
+    .card {
+      width: var(--size);
+      height: calc(var(--size) * 1.2);
+      position: relative;
+      border: none;
+      background: none;
+      cursor: pointer;
+      transform-style: preserve-3d;
+      transition: transform 0.45s;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .card.flipped, .card.matched { transform: rotateY(180deg); }
+    .card:focus-visible { outline: 3px solid var(--accent); outline-offset: 3px; border-radius: 14px; }
+
+    .face {
+      position: absolute;
+      inset: 0;
+      border-radius: 14px;
+      backface-visibility: hidden;
+      -webkit-backface-visibility: hidden;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 4px 10px rgba(90, 58, 46, 0.12);
+    }
+    .back {
+      background:
+        radial-gradient(circle at 25% 25%, var(--card-back-2) 0 6px, transparent 7px),
+        radial-gradient(circle at 75% 70%, var(--card-back-2) 0 6px, transparent 7px),
+        var(--card-back);
+      border: 3px solid #fff;
+      font-size: calc(var(--size) * 0.4);
+    }
+    .front {
+      background: var(--card-front);
+      border: 2px solid var(--line);
+      transform: rotateY(180deg);
+    }
+    .front .emoji { font-size: calc(var(--size) * 0.5); line-height: 1.1; }
+    .front .name { font-size: clamp(10px, 2.8vw, 13px); color: var(--muted); margin-top: 2px; }
+
+    .card.matched .front { background: var(--match); border-color: #9bdba8; }
+    .card.matched { animation: pop 0.45s 0.35s; }
+    @keyframes pop {
+      0%, 100% { scale: 1; }
+      50% { scale: 1.12; }
+    }
+
+    .btn {
+      margin-top: 24px;
+      background: var(--accent);
+      color: #fff;
+      border: none;
+      border-radius: 999px;
+      padding: 12px 28px;
+      font: inherit;
+      font-weight: 700;
+      cursor: pointer;
+    }
+    .btn:hover { background: var(--accent-dark); }
+
+    .rank {
+      margin-top: 28px;
+      width: min(100%, 420px);
+      background: #fff;
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      padding: 16px 18px;
+    }
+    .rank h3 { font-size: 16px; display: flex; justify-content: space-between; align-items: baseline; }
+    .rank h3 small { font-size: 12px; color: var(--muted); font-weight: 400; }
+    .rank ol { list-style: none; margin-top: 10px; }
+    .rank li {
+      display: grid;
+      grid-template-columns: 40px 1fr auto;
+      gap: 8px;
+      align-items: center;
+      padding: 7px 8px;
+      border-radius: 10px;
+      font-size: 14px;
+      font-variant-numeric: tabular-nums;
+    }
+    .rank li .pos { font-weight: 700; color: var(--muted); }
+    .rank li .detail { color: var(--muted); font-size: 12px; }
+    .rank li.live { background: #ffe9f1; font-weight: 700; }
+    .rank li.live .pos { color: var(--accent-dark); }
+    .rank .empty { color: var(--muted); font-size: 14px; margin-top: 10px; }
+
+    .overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(90, 58, 46, 0.45);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 16px;
+    }
+    .overlay.show { display: flex; }
+    .modal {
+      background: #fff;
+      border-radius: 24px;
+      padding: 32px 28px;
+      text-align: center;
+      max-width: 340px;
+      width: 100%;
+    }
+    .modal .big { font-size: 56px; }
+    .modal h2 { margin: 8px 0; }
+    .modal p { color: var(--muted); }
+    .modal input {
+      margin-top: 16px;
+      width: 100%;
+      border: 2px solid var(--line);
+      border-radius: 12px;
+      padding: 10px 14px;
+      font: inherit;
+      text-align: center;
+    }
+    .modal .btn { margin-top: 16px; }
+  </style>
+</head>
+<body>
+  <h1>🃏 메모리 카드 게임</h1>
+  <p class="sub">카드를 뒤집어 같은 그림 두 장을 찾아보세요!</p>
+
+  <div class="themes" id="themes"></div>
+
+  <div class="stats">
+    <div class="stat"><span>시도</span><b id="moves">0</b></div>
+    <div class="stat"><span>시간</span><b id="time">0:00</b></div>
+    <div class="stat"><span>맞춘 쌍</span><b id="pairs">0 / 8</b></div>
+    <div class="stat"><span>현재 순위</span><b id="myrank">-</b></div>
+  </div>
+
+  <div class="board" id="board"></div>
+  <button class="btn" id="restart">다시 시작</button>
+
+  <div class="rank">
+    <h3><span id="rank-title">순위</span><small>점수 = 시간(초) + 시도×3 · 낮을수록 좋아요</small></h3>
+    <ol id="rank-list"></ol>
+    <p class="empty" id="rank-empty">아직 기록이 없어요. 첫 기록을 남겨보세요!</p>
+  </div>
+
+  <div class="overlay" id="overlay">
+    <div class="modal">
+      <div class="big">🎉</div>
+      <h2>모두 맞췄어요!</h2>
+      <p id="result"></p>
+      <input id="name" maxlength="8" placeholder="이름 (최대 8자)" autocomplete="off">
+      <button class="btn" id="again">기록 저장하고 한 번 더!</button>
+    </div>
+  </div>
+
+  <script>
+    const THEMES = [
+      {
+        id: "dessert", label: "🍰 디저트", back: "🍬",
+        items: [
+          ["🍰", "케이크"], ["🧁", "컵케이크"], ["🍩", "도넛"], ["🍪", "쿠키"],
+          ["🍦", "아이스크림"], ["🍮", "푸딩"], ["🍫", "초콜릿"], ["🥧", "파이"],
+        ],
+      },
+      {
+        id: "animal", label: "🐻 동물", back: "🐾",
+        items: [
+          ["🐱", "고양이"], ["🐰", "토끼"], ["🐻", "곰"], ["🐼", "판다"],
+          ["🦊", "여우"], ["🐸", "개구리"], ["🐵", "원숭이"], ["🦁", "사자"],
+        ],
+      },
+      {
+        id: "dog", label: "🐶 강아지", back: "🦴",
+        items: [
+          ["🐶", "강아지"], ["🐕", "멍멍이"], ["🦮", "안내견"], ["🐕‍🦺", "도우미견"],
+          ["🐩", "푸들"], ["🐺", "늑대"], ["🦴", "뼈다귀"], ["🐾", "발자국"],
+        ],
+      },
+      {
+        id: "color", label: "🎨 컬러", back: "🎨",
+        items: [
+          ["🔴", "빨강"], ["🟠", "주황"], ["🟡", "노랑"], ["🟢", "초록"],
+          ["🔵", "파랑"], ["🟣", "보라"], ["🟤", "갈색"], ["⚪", "하양"],
+        ],
+      },
+    ];
+    const PAIRS = 8;
+    const MAX_RANKS = 5;
+    const MOVE_PENALTY = 3;
+
+    const $ = (id) => document.getElementById(id);
+    const board = $("board");
+    const movesEl = $("moves");
+    const timeEl = $("time");
+    const pairsEl = $("pairs");
+    const myRankEl = $("myrank");
+    const overlay = $("overlay");
+    const resultEl = $("result");
+    const nameEl = $("name");
+    const rankList = $("rank-list");
+    const rankEmpty = $("rank-empty");
+    const rankTitle = $("rank-title");
+    const themesEl = $("themes");
+
+    let theme = THEMES[0];
+    let first = null;
+    let locked = false;
+    let moves = 0;
+    let matched = 0;
+    let startedAt = null;
+    let timer = null;
+    let finished = false;
+    let finalScore = 0;
+
+    function load(key, fallback) {
+      try {
+        const v = localStorage.getItem(key);
+        return v === null ? fallback : JSON.parse(v);
+      } catch (e) { return fallback; }
+    }
+    function save(key, value) {
+      try { localStorage.setItem(key, JSON.stringify(value)); } catch (e) {}
+    }
+
+    const rankKey = () => "memory-rank-" + theme.id;
+    const loadRecords = () => load(rankKey(), []);
+
+    function shuffle(arr) {
+      for (let i = arr.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [arr[i], arr[j]] = [arr[j], arr[i]];
+      }
+      return arr;
+    }
+
+    function fmt(sec) {
+      return Math.floor(sec / 60) + ":" + String(sec % 60).padStart(2, "0");
+    }
+
+    function elapsed() {
+      return startedAt ? Math.floor((Date.now() - startedAt) / 1000) : 0;
+    }
+
+    const calcScore = () => elapsed() + moves * MOVE_PENALTY;
+
+    // 저장된 기록 중 내 점수보다 좋은(낮은) 기록 수 + 1
+    function rankOf(score, records) {
+      return records.filter((r) => r.score <= score).length + 1;
+    }
+
+    function renderRank() {
+      rankTitle.textContent = "🏆 " + theme.label.split(" ")[1] + " 순위";
+      const records = loadRecords();
+      const rows = records.slice(0, MAX_RANKS).map((r, i) => ({ pos: i + 1, ...r }));
+      const playing = startedAt && !finished;
+
+      if (playing) {
+        const score = calcScore();
+        const pos = rankOf(score, records);
+        myRankEl.textContent = pos + "위";
+        const live = { pos, name: "나 (진행 중)", score, moves, sec: elapsed(), live: true };
+        if (pos <= MAX_RANKS) {
+          rows.splice(pos - 1, 0, live);
+          rows.forEach((r, i) => { r.pos = i + 1; });
+          rows.length = Math.min(rows.length, MAX_RANKS);
+        } else {
+          rows.push(live);
+        }
+      } else if (!finished) {
+        myRankEl.textContent = "-";
+      }
+
+      rankList.innerHTML = "";
+      rows.forEach((r) => {
+        const li = document.createElement("li");
+        if (r.live) li.className = "live";
+        li.innerHTML = '<span class="pos"></span><span class="nm"></span><span class="detail"></span>';
+        li.children[0].textContent = r.pos + "위";
+        li.children[1].textContent = r.name;
+        li.children[2].textContent = r.score + "점 · " + r.moves + "회 · " + fmt(r.sec);
+        rankList.appendChild(li);
+      });
+      rankEmpty.style.display = rows.length ? "none" : "block";
+    }
+
+    function renderThemes() {
+      themesEl.innerHTML = "";
+      THEMES.forEach((t) => {
+        const b = document.createElement("button");
+        b.className = "theme-btn" + (t === theme ? " active" : "");
+        b.textContent = t.label;
+        b.addEventListener("click", () => {
+          if (t === theme) return;
+          theme = t;
+          renderThemes();
+          startGame();
+        });
+        themesEl.appendChild(b);
+      });
+    }
+
+    function startGame() {
+      clearInterval(timer);
+      first = null;
+      locked = false;
+      moves = 0;
+      matched = 0;
+      startedAt = null;
+      finished = false;
+      movesEl.textContent = "0";
+      timeEl.textContent = "0:00";
+      pairsEl.textContent = "0 / " + PAIRS;
+      overlay.classList.remove("show");
+
+      board.innerHTML = "";
+      shuffle([...theme.items, ...theme.items]).forEach(([emoji, name]) => {
+        const card = document.createElement("button");
+        card.className = "card";
+        card.dataset.key = emoji;
+        card.setAttribute("aria-label", "뒤집힌 카드");
+        card.innerHTML =
+          '<span class="face back">' + theme.back + "</span>" +
+          '<span class="face front"><span class="emoji">' + emoji +
+          '</span><span class="name">' + name + "</span></span>";
+        card.addEventListener("click", () => flip(card));
+        board.appendChild(card);
+      });
+      renderRank();
+    }
+
+    function tick() {
+      timeEl.textContent = fmt(elapsed());
+      renderRank();
+    }
+
+    function flip(card) {
+      if (locked || card.classList.contains("flipped") || card.classList.contains("matched")) return;
+
+      if (!startedAt) {
+        startedAt = Date.now();
+        timer = setInterval(tick, 500);
+      }
+
+      card.classList.add("flipped");
+      if (!first) {
+        first = card;
+        return;
+      }
+
+      moves++;
+      movesEl.textContent = moves;
+      const second = card;
+
+      if (first.dataset.key === second.dataset.key) {
+        [first, second].forEach((c) => {
+          c.classList.remove("flipped");
+          c.classList.add("matched");
+        });
+        first = null;
+        matched++;
+        pairsEl.textContent = matched + " / " + PAIRS;
+        if (matched === PAIRS) finish();
+      } else {
+        locked = true;
+        const a = first;
+        first = null;
+        setTimeout(() => {
+          a.classList.remove("flipped");
+          second.classList.remove("flipped");
+          locked = false;
+        }, 800);
+      }
+      renderRank();
+    }
+
+    function finish() {
+      clearInterval(timer);
+      finished = true;
+      const sec = elapsed();
+      finalScore = sec + moves * MOVE_PENALTY;
+      timeEl.textContent = fmt(sec);
+      const pos = rankOf(finalScore, loadRecords());
+      myRankEl.textContent = pos + "위";
+      resultEl.textContent =
+        moves + "번 만에 " + fmt(sec) + " 걸렸어요! " + finalScore + "점 · 예상 " + pos + "위";
+      nameEl.value = load("memory-name", "");
+      setTimeout(() => overlay.classList.add("show"), 900);
+    }
+
+    function saveRecord() {
+      const name = nameEl.value.trim() || "익명";
+      save("memory-name", name);
+      const records = loadRecords();
+      records.push({ name, score: finalScore, moves, sec: Math.floor(finalScore - moves * MOVE_PENALTY) });
+      records.sort((a, b) => a.score - b.score);
+      save(rankKey(), records.slice(0, 20));
+      startGame();
+    }
+
+    $("restart").addEventListener("click", startGame);
+    $("again").addEventListener("click", saveRecord);
+    renderThemes();
+    startGame();
+  </script>
+</body>
+</html>
